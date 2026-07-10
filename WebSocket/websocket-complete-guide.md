@@ -357,6 +357,60 @@ Attempt 4: wait 8s   then retry
 ```
 Why exponential and not fixed intervals? If the server just crashed and 10,000 clients all retry every 1 second at the same time, you create a "thundering herd" that can crash the server again the moment it comes back up. Exponential backoff (ideally with slight randomness/"jitter") spreads out reconnection attempts.
 
+**React example — a `useWebSocket` hook with exponential backoff reconnection:**
+
+```javascript
+import { useEffect, useRef, useState, useCallback } from "react";
+
+function useWebSocket(url) {
+  const [isConnected, setIsConnected] = useState(false);
+  const [lastMessage, setLastMessage] = useState(null);
+  const wsRef = useRef(null);
+  const attemptRef = useRef(0);
+  const timeoutRef = useRef(null);
+
+  const connect = useCallback(() => {
+    const ws = new WebSocket(url);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      setIsConnected(true);
+      attemptRef.current = 0; // reset backoff on successful connect
+    };
+
+    ws.onmessage = (event) => {
+      setLastMessage(JSON.parse(event.data));
+    };
+
+    ws.onclose = () => {
+      setIsConnected(false);
+      const delay = Math.min(1000 * 2 ** attemptRef.current, 30000); // cap at 30s
+      const jitter = Math.random() * 500;
+      attemptRef.current += 1;
+      timeoutRef.current = setTimeout(connect, delay + jitter);
+    };
+
+    ws.onerror = () => ws.close(); // triggers onclose -> reconnect logic
+  }, [url]);
+
+  useEffect(() => {
+    connect();
+    return () => {
+      clearTimeout(timeoutRef.current);
+      wsRef.current?.close();
+    };
+  }, [connect]);
+
+  const sendMessage = (data) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify(data));
+    }
+  };
+
+  return { isConnected, lastMessage, sendMessage };
+}
+```
+
 ### 6.2 Heartbeats in Practice
 
 Beyond protocol-level Ping/Pong, many production systems also implement **application-level heartbeats** (a small JSON message like `{"type": "heartbeat"}`) because:
@@ -416,7 +470,198 @@ Large messages (say, a big JSON payload or a file chunk) can be split across mul
 
 ---
 
-## PART 7: Common Interview Questions (With Short, Sharp Answers)
+## PART 7: Hands-On — Node.js and React Code Examples
+
+Everything above was theory. Here's how it actually looks in code, using the `ws` library on the server (the standard, minimal WebSocket library for Node.js) and plain browser `WebSocket` API on the client (no extra library needed — it's built into every browser).
+
+### 7.1 Setup
+
+```bash
+mkdir ws-demo && cd ws-demo
+npm init -y
+npm install ws
+```
+
+### 7.2 Basic Server (Node.js) — Matches Part 1 & Part 4 (Lifecycle)
+
+```javascript
+// server.js
+const { WebSocketServer } = require("ws");
+
+const wss = new WebSocketServer({ port: 8080 });
+
+wss.on("connection", (socket, request) => {
+  console.log("Client connected from:", request.socket.remoteAddress);
+
+  // This fires for every message received from this client
+  socket.on("message", (data) => {
+    console.log("Received:", data.toString());
+
+    // Broadcast to ALL connected clients (including sender)
+    wss.clients.forEach((client) => {
+      if (client.readyState === client.OPEN) {
+        client.send(data.toString());
+      }
+    });
+  });
+
+  socket.on("close", (code, reason) => {
+    console.log(`Client disconnected: ${code} ${reason}`);
+  });
+
+  socket.on("error", (err) => {
+    console.error("Socket error:", err);
+  });
+
+  socket.send(JSON.stringify({ type: "welcome", message: "Connected!" }));
+});
+
+console.log("WebSocket server running on ws://localhost:8080");
+```
+
+Run it: `node server.js`
+
+### 7.3 Basic Client (React) — Matches Part 4 (Lifecycle Events)
+
+This uses the browser's **native** `WebSocket` API — no npm package needed on the client for raw WebSocket.
+
+```jsx
+import { useEffect, useRef, useState } from "react";
+
+function ChatWindow() {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+  const [status, setStatus] = useState("CONNECTING");
+  const socketRef = useRef(null);
+
+  useEffect(() => {
+    const socket = new WebSocket("ws://localhost:8080");
+    socketRef.current = socket;
+
+    socket.onopen = () => setStatus("OPEN");
+
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      setMessages((prev) => [...prev, data]);
+    };
+
+    socket.onclose = () => setStatus("CLOSED");
+
+    socket.onerror = (err) => console.error("WebSocket error:", err);
+
+    // Cleanup: close the connection when the component unmounts
+    return () => socket.close();
+  }, []);
+
+  const sendMessage = () => {
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ type: "chat", text: input }));
+      setInput("");
+    }
+  };
+
+  return (
+    <div>
+      <p>Status: {status}</p>
+      {messages.map((msg, i) => (
+        <p key={i}>{msg.type === "welcome" ? msg.message : msg.text}</p>
+      ))}
+      <input value={input} onChange={(e) => setInput(e.target.value)} />
+      <button onClick={sendMessage}>Send</button>
+    </div>
+  );
+}
+
+export default ChatWindow;
+```
+
+**Note the direct mapping to Part 4's lifecycle:** `onopen` → CONNECTING finished, now OPEN. `onmessage` → data flowing while OPEN. `onclose` → CLOSING/CLOSED. `onerror` → error state. This is exactly the four-event pattern described earlier, now as real code.
+
+### 7.4 Server-Side Ping/Pong Heartbeat (Matches Part 3.4 and Part 6.2)
+
+The `ws` library handles low-level ping/pong automatically, but you still need to actively check for dead connections yourself:
+
+```javascript
+// Add this to server.js to detect and terminate dead connections
+function heartbeat() {
+  this.isAlive = true;
+}
+
+wss.on("connection", (socket) => {
+  socket.isAlive = true;
+  socket.on("pong", heartbeat); // browser auto-responds to pings with pongs
+
+  // ...rest of connection handling from 7.2...
+});
+
+// Every 30 seconds, ping all clients and terminate any that didn't respond last time
+const interval = setInterval(() => {
+  wss.clients.forEach((socket) => {
+    if (socket.isAlive === false) return socket.terminate(); // no pong = dead
+
+    socket.isAlive = false;
+    socket.ping();
+  });
+}, 30000);
+
+wss.on("close", () => clearInterval(interval));
+```
+
+### 7.5 Sending Binary Data (Matches Part 3.2 — Opcode `0x2`)
+
+```javascript
+// Server: sending a binary buffer instead of text
+socket.send(Buffer.from([1, 2, 3, 4]));
+
+// Client: receiving binary data
+socket.onmessage = (event) => {
+  if (event.data instanceof Blob) {
+    event.data.arrayBuffer().then((buffer) => {
+      console.log(new Uint8Array(buffer)); // [1, 2, 3, 4]
+    });
+  }
+};
+```
+
+### 7.6 Authenticated Connection (Matches Part 6.6 — Security)
+
+Since WebSocket has no built-in auth, pass a token via query string during the handshake and validate it before accepting the connection:
+
+```javascript
+// Server — validate token BEFORE upgrading the connection
+const { createServer } = require("http");
+const { WebSocketServer } = require("ws");
+const url = require("url");
+
+const server = createServer();
+const wss = new WebSocketServer({ noServer: true });
+
+server.on("upgrade", (request, socket, head) => {
+  const { query } = url.parse(request.url, true);
+  const token = query.token;
+
+  if (!isValidToken(token)) {
+    socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
+    socket.destroy();
+    return;
+  }
+
+  wss.handleUpgrade(request, socket, head, (ws) => {
+    wss.emit("connection", ws, request);
+  });
+});
+
+server.listen(8080);
+```
+
+```javascript
+// Client — pass the token as a query param
+const socket = new WebSocket(`ws://localhost:8080?token=${userToken}`);
+```
+
+---
+
+## PART 8: Common Interview Questions (With Short, Sharp Answers)
 
 **Q: What problem does WebSocket solve that HTTP can't?**
 A: HTTP is request-response only — the server can never push data on its own. WebSocket provides a persistent, full-duplex connection so either side can send data anytime.
@@ -444,7 +689,7 @@ A: No. Auth must be handled by the app — typically a token passed during the h
 
 ---
 
-## PART 8: Real-World Use Cases (So You Know Where This Applies)
+## PART 9: Real-World Use Cases (So You Know Where This Applies)
 
 - **Chat applications** (WhatsApp Web, Slack, Discord) — instant bidirectional messaging.
 - **Live collaborative tools** (Google Docs-style cursors/edits, Figma) — every keystroke/change pushed instantly to all collaborators.
@@ -468,7 +713,7 @@ A: No. Auth must be handled by the app — typically a token passed during the h
 8. Browsers don't enforce Same-Origin for WebSocket — server MUST validate `Origin` header manually.
 9. Scaling requires sticky sessions + a Pub/Sub backbone (Redis/Kafka) since connections are stateful and pinned to one server.
 10. Reconnection should use exponential backoff with jitter, not fixed-interval retries.
+11. Working code: Node.js server uses the `ws` library; React client uses the browser's **native** `WebSocket` API (no library needed) — see Part 7.
 
 ---
 
-*Save this file. Every concept here is self-contained — you should never need to re-look-up WebSocket fundamentals after reading this once.*
