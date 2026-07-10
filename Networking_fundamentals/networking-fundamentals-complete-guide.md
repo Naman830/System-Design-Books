@@ -595,5 +595,3 @@ A: TCP starts sending slowly (Slow Start), doubling its rate each round-trip unt
 12. **"What happens when you type a URL"** ties everything together — practice explaining this fluently.
 
 ---
-
-*Save this file. Combined with your WebSocket guide, you now have the full networking stack — from raw bits to encrypted application data — covered end to end.*
