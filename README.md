@@ -82,7 +82,7 @@ This repository is continuously expanding.
 
 ## 🏗️ System Design
 
-> Topics will be added regularly.
+- CRDT & OT
 
 ---
 
