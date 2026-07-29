@@ -281,10 +281,3 @@ You now have the complete conceptual map of WebRTC:
 1. **Part 1** — What WebRTC is, why it exists, and how it relates to Socket.IO
 2. **Part 2** — How two peers behind NAT actually find each other (Signaling, SDP, ICE, STUN, TURN)
 3. **Part 3** — What flows through that connection (media, data), how it's secured, and how to scale past 2 people
-
-**Natural next steps**, whenever you're ready:
-- A hands-on implementation guide (with actual Next.js + Node.js + Socket.IO code) building a working 1-to-1 video call from these concepts
-- A deeper dive specifically into SFU internals (mediasoup vs LiveKit vs Janus) if/when you build group calling
-- A dedicated guide on WebRTC debugging tools (`chrome://webrtc-internals`, connection state events) for when things go wrong in practice
-
-Just say the word for whichever one you want next.
