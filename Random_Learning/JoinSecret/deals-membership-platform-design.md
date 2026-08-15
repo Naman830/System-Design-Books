@@ -355,13 +355,3 @@ project-root/
 Build strictly in this order — Phase 3 (payments) is the highest-risk piece, so get Phases 1-2 rock solid first so you're not debugging auth *and* Razorpay webhooks at the same time.
 
 ---
-
-## 13. What to Do Next
-
-Pick one starting point and I'll go deep with you, fully from scratch:
-1. **Database schema in Prisma** — actual `schema.prisma` file, ready to migrate.
-2. **Auth system implementation** — JWT-based, with the 3 roles wired up.
-3. **Razorpay subscription integration** — the exact API calls, webhook handler code, and how to test it locally.
-
-Just tell me which one and we'll build it step by step.
-
