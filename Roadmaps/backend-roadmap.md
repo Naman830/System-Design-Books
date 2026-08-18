@@ -619,6 +619,44 @@ There is no new library here. This is what people actually mean when they call s
 
 ---
 
+## Where to actually learn each phase (free resources)
+
+**The rule that matters more than the list:** official docs are the source of truth; YouTube is for *unblocking*, not for learning. Watch one video, then close it and build the thing yourself. Roughly **one hour of video per five hours of building.** Passive tutorial-watching feels like progress and produces none.
+
+### YouTube — matched to phases
+
+| Channel | Best for | Use it in |
+|---|---|---|
+| **Hussein Nasser** | Backend fundamentals done properly — HTTP/1.1 vs 2 vs 3, TCP, connection pooling, proxies, DB internals. Highest-leverage channel on this list. | Phase 0, 1, 10, 11 |
+| **Traversy Media** | Clean Node / Express / MongoDB crash courses | Phase 1–3 |
+| **Hitesh Choudhary (Chai aur Code)** | Full Hindi backend series, production-grade project from scratch | Phase 2–4 |
+| **Web Dev Simplified** | Clearest explanations of JWT, cookies vs tokens, auth flows, TS basics | Phase 4–5 |
+| **Piyush Garg** | Node, Docker, Kafka, microservices, system design | Phase 8–11 |
+| **Arpit Bhayani** | Redis internals, concurrency, distributed systems | Phase 8, 11 |
+| **TechWorld with Nana** | Docker, CI/CD, Kubernetes — clearest DevOps teacher on YouTube | Phase 10 |
+| **Anton Putra** | Real load tests and benchmarks, Linux/cloud performance | Phase 10–11 |
+| **ByteByteGo** | System design visuals — caching, sharding, queues | Phase 11 |
+| **Gaurav Sen** | System design reasoning and tradeoffs | Phase 11 |
+| **CMU Database Group (Andy Pavlo)** | Free university-grade database internals course | Phase 3, 6, 11 |
+| **Fireship** | Deciding *what* to learn next — not for learning it | Anytime, sparingly |
+
+### Free written resources
+
+- **[MDN Web Docs](https://developer.mozilla.org/)** — HTTP, cookies, CORS, caching headers. The canonical reference. *(Phase 0, 2)*
+- **Node.js official docs + Learn guides** — event loop, streams, cluster. *(Phase 1)*
+- **Express / Mongoose / Prisma official docs** — all three have genuinely good tutorials. *(Phase 2, 3, 6)*
+- **[pgexercises.com](https://pgexercises.com/)** and **postgresqltutorial.com** — free SQL practice on real queries. *(Phase 6)*
+- **[Use The Index, Luke](https://use-the-index-luke.com/)** — free indexing book; explains *why* queries are slow. *(Phase 6, 11)*
+- **[OWASP Top 10 + Cheat Sheet Series](https://cheatsheetseries.owasp.org/)** — the security checklist real teams audit against. *(Phase 4)*
+- **[12factor.net](https://12factor.net/)** — short. Read it once around Phase 10; it shapes everything after.
+- **Redis University** — free official courses on caching and data structures. *(Phase 8)*
+- **[System Design Primer](https://github.com/donnemartin/system-design-primer)** — pairs with this repo's [System_Design](../System_Design/) folder. *(Phase 11)*
+- **[roadmap.sh/backend](https://roadmap.sh/backend)** — use as a progress checklist, not as the plan.
+- **freeCodeCamp** — free full-length backend and database courses.
+- **Postman Learning Center** — free API design and testing curriculum. *(Phase 2, 7)*
+
+---
+
 ## Related notes in this repo
 
 - **[Libraries — deep dives](../Libraries_Depth/)** — the per-library reference this roadmap links into
