@@ -96,7 +96,12 @@ await axios.post("https://api.internal/v1/users", { email: "a@b.com" }, { timeou
 
 ```js
 const axios = require("axios");   // the package ships both ESM and CJS builds
-const { data } = await axios.get("https://api.github.com/users/torvalds");
+
+// CommonJS has no top-level await, so the call lives inside an async function
+async function getTorvalds() {
+  const { data } = await axios.get("https://api.github.com/users/torvalds");
+  return data;
+}
 ```
 
 ### Express example
@@ -356,7 +361,6 @@ const { data } = await withRetry(() => api.get("/users/42"));
 That **jitter** line is the one people skip. Without it, a thousand clients that all timed out at 12:00:03.000 all retry at 12:00:03.200 — a synchronized stampede that re-kills the upstream exactly as it was recovering. Randomizing the delay spreads them out. If you would rather not maintain that, `axios-retry` wires the same idea into an instance:
 
 ```js
-// npm install axios-retry
 import axiosRetry, { exponentialDelay, isNetworkOrIdempotentRequestError } from "axios-retry";
 
 axiosRetry(api, {
@@ -373,9 +377,10 @@ axiosRetry(api, {
 ## 7. Params, Uploads, Streams and Cancellation
 
 ```js
+const [query, page] = ["iron man & robots", 2];
 await api.get(`/search?q=${query}&page=${page}`);   // ❌ breaks on a space, &, #, + or emoji
 await api.get("/search", {                          // ✅ every key and value URL-encoded for you
-  params: { q: "iron man & robots", page: 2, tags: ["new", "sale"] }
+  params: { q: query, page, tags: ["new", "sale"] }
 });
 ```
 
@@ -445,7 +450,6 @@ interface GitHubUser {                  // the shape you EXPECT from the upstrea
 
 interface GitHubError {                 // the upstream's ERROR body — types err.response.data
   message: string;
-  documentation_url?: string;
 }
 
 const github: AxiosInstance = axios.create({
@@ -500,11 +504,8 @@ export const api = axios.create({
   headers: { "User-Agent": `${process.env.SERVICE_NAME}/${process.env.VERSION}` }
 });
 
-axiosRetry(api, {
-  retries: 3,
-  retryDelay: exponentialDelay,
-  retryCondition: isNetworkOrIdempotentRequestError
-});
+axiosRetry(api, { retries: 3, retryDelay: exponentialDelay,
+  retryCondition: isNetworkOrIdempotentRequestError });
 
 api.interceptors.request.use((config) => {
   config.headers["X-Request-Id"] ??= randomUUID();   // propagate or mint — see [[uuid_nanoid]]
@@ -525,7 +526,7 @@ api.interceptors.response.use((res) => res, (err) => {
 ```
 
 - **Per-dependency budgets.** Each upstream gets its own instance, timeout and retry policy. Your route's total budget must exceed the sum of the calls it makes, or you time out on yourself.
-- **Proxies and redirects.** In Node, axios honours the `HTTP_PROXY`, `HTTPS_PROXY` and `NO_PROXY` environment variables — handy in corporate networks, a nasty surprise when they are set and you didn't expect them. It also follows redirects by default; for a callback URL you don't control, set `maxRedirects: 0` and inspect the `Location` header yourself.
+- **Proxies and redirects.** In Node, axios honors the `HTTP_PROXY`, `HTTPS_PROXY` and `NO_PROXY` environment variables — handy in corporate networks, a nasty surprise when they are set and you didn't expect them. It also follows redirects by default; for a callback URL you don't control, set `maxRedirects: 0` and inspect the `Location` header yourself.
 - **Browsers.** axios is subject to CORS exactly like `fetch` — an interceptor cannot bypass it, the fix is on the server ([[cors]]). `withCredentials: true` also needs `Access-Control-Allow-Credentials` on the other side.
 - **Testing.** `nock` intercepts at the Node HTTP layer; `axios-mock-adapter` swaps the adapter on one instance. Because your client is a module you import, injecting a fake is trivial — see [[jest_supertest]].
 - **Don't call yourself over HTTP.** If services A and B are the same process, import the function. A loopback call costs a socket, a serialization round trip and a whole new class of failure.
@@ -553,7 +554,7 @@ api.interceptors.response.use((res) => res, (err) => {
 |---|---|---|
 | **Native `fetch`** | Built into Node 18+, all browsers, Deno, Bun and every edge runtime. Zero dependencies. | One-off calls, scripts, serverless/edge functions, anywhere bundle size matters. Just remember `if (!res.ok) throw` and `AbortSignal.timeout()`. |
 | **`axios`** | Batteries included: instances, interceptors, auto-JSON, throws on non-2xx, progress events, browser + Node from one codebase. | The default for a real service or SPA with a shared client, auth refresh, retries and logging. Biggest ecosystem, most answers online. |
-| **`got`** | Node-only. Hooks (interceptors by another name), strong retry logic, pagination helpers, first-class streams. ESM-only. | Node backends that hammer external APIs and want serious retry and pagination behaviour out of the box. |
+| **`got`** | Node-only. Hooks (interceptors by another name), strong retry logic, pagination helpers, first-class streams. ESM-only. | Node backends that hammer external APIs and want serious retry and pagination behavior out of the box. |
 | **`ky`** | A tiny `fetch` wrapper: hooks, retries, timeouts, throws on non-2xx. ESM-only, built on the platform. | Frontends and edge runtimes that want axios ergonomics without shipping axios. |
 | **`undici`** | The low-level HTTP client that *powers* Node's `fetch`. Connection pooling via `Pool`/`Agent`, the fastest option, plus `MockAgent` for tests. | Very high-throughput services and proxies, or when you need precise control over sockets. |
 | **`node-fetch` / `request`** | Legacy. `node-fetch` is redundant now `fetch` is built in; `request` has been deprecated since 2020. | Nothing new — migrate off them. |
