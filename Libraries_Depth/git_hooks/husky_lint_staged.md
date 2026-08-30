@@ -40,9 +40,7 @@ Life without them is a **README bullet nobody reads**:
 
 ```bash
 # "Before you commit, please run:" — the honor system
-npm run lint
-npm test
-git commit -m "add checkout flow"
+npm run lint && npm test && git commit -m "add checkout flow"
 
 # You will remember that for about three days. So someone discovers git hooks:
 echo 'npm run lint' > .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
@@ -101,10 +99,8 @@ npx lint-staged
 Commit something with a lint error and watch it get blocked:
 
 ```bash
-git add src/routes/users.js
-git commit -m "add user route"
-# eslint --fix --max-warnings=0 found 1 problem
-# husky - pre-commit script failed (code 1)
+git add src/routes/users.js && git commit -m "add user route"
+# husky - pre-commit script failed (code 1)   # eslint found 1 problem, nothing committed
 ```
 
 ### CommonJS version
@@ -134,16 +130,7 @@ my-api/
 └─ package.json
 ```
 
-Scope the globs to where your source actually lives, so a stray staged file in `scripts/` or `docs/` never triggers ESLint:
-
-```json
-{
-  "lint-staged": {
-    "src/**/*.js": ["eslint --fix --max-warnings=0", "prettier --write"],
-    "*.{json,md,yml}": ["prettier --write"]
-  }
-}
-```
+Scope the globs to where your source actually lives — `"src/**/*.js"` rather than a bare `"*.js"` — so a stray staged file in `scripts/` or `docs/` never triggers ESLint.
 
 That's the entire mental model — git fires a shell script at a defined moment, the script runs `lint-staged`, `lint-staged` runs your tools on just the staged files and re-stages whatever they fixed, and a **non-zero exit code kills the commit**.
 
@@ -158,10 +145,8 @@ Every repository already ships a folder full of disabled examples — drop the `
 ```bash
 ls .git/hooks
 # applypatch-msg.sample  commit-msg.sample  pre-commit.sample  pre-push.sample ...
-
 git ls-files .git/hooks   # prints nothing — ever. .git/ is git's own storage,
                           # it is not tracked BY git, so your hook cannot be shared.
-
 git config core.hooksPath .husky/_   # the escape hatch: "look in this committed folder"
 ```
 
@@ -174,8 +159,7 @@ That last line is genuinely all husky is doing at its core — plus generating t
 flowchart TD
     A["git commit"] --> B["pre-commit<br/>no arguments"]
     B -->|"exit 1"| X["Commit aborted"]
-    B -->|"exit 0"| C["prepare-commit-msg<br/>can pre-fill the message"]
-    C --> D["You write the<br/>commit message"]
+    B -->|"exit 0"| D["You write the<br/>commit message"]
     D --> E["commit-msg<br/>gets the message file path"]
     E -->|"exit 1"| X
     E -->|"exit 0"| F["Commit object written"]
@@ -188,7 +172,6 @@ flowchart TD
     style A fill:#e0f0ff,stroke:#000000,color:#000000
     style H fill:#e0f0ff,stroke:#000000,color:#000000
     style B fill:#fff2cc,stroke:#000000,color:#000000
-    style C fill:#ffffff,stroke:#000000,color:#000000
     style D fill:#ffffff,stroke:#000000,color:#000000
     style E fill:#fff2cc,stroke:#000000,color:#000000
     style G fill:#ffffff,stroke:#000000,color:#000000
@@ -228,12 +211,7 @@ flowchart TD
 
 ### What a hook file looks like in husky v9+
 
-```sh
-# .husky/pre-commit
-npx lint-staged
-```
-
-That is the complete file — one line. Tutorials that start the hook with `#!/usr/bin/env sh` and `. "$(dirname -- "$0")/_/husky.sh"` were written for husky v8; in v9 that boilerplate is **unnecessary and prints a deprecation warning** on every commit, and v10 removes it. Delete both lines.
+The whole of `.husky/pre-commit` is one line: `npx lint-staged`. Tutorials that start the hook with `#!/usr/bin/env sh` and `. "$(dirname -- "$0")/_/husky.sh"` were written for husky v8; in v9 that boilerplate is **unnecessary and prints a deprecation warning** on every commit, and v10 removes it. Delete both lines.
 
 It is still an ordinary shell script, so `&&` chains, `if` blocks and an early `exit 1` all work — section 8 uses that to block `.env` files before `lint-staged` even runs.
 
@@ -256,18 +234,7 @@ npm run lint    # eslint .
 
 Two things go wrong immediately. **It is slow** — ESLint on a 3,000-file repo takes 20-40 seconds, you commit ten times an hour, and you will delete this hook by Thursday. And **it fails on files you did not touch** — turn on a new rule and every legacy file lights up, so nobody can commit anything until someone does a giant repo-wide cleanup. The hook ends up punishing you for other people's code.
 
-lint-staged fixes both by passing your tools **only the paths currently in the staging area**:
-
-```json
-{
-  "lint-staged": {
-    "*.{js,jsx,ts,tsx}": ["eslint --fix --max-warnings=0", "prettier --write"],
-    "*.{json,md,yml,yaml,css,html}": ["prettier --write"]
-  }
-}
-```
-
-Read it as: *"for every staged file matching this glob, run these commands, in order, with the matching filenames appended."* If you staged `src/routes/users.js` and `README.md`, lint-staged literally runs:
+lint-staged fixes both by passing your tools **only the paths currently in the staging area**. Read the config from section 3 as: *"for every staged file matching this glob, run these commands, in order, with the matching filenames appended."* If you staged `src/routes/users.js` and `README.md`, lint-staged literally runs:
 
 ```bash
 eslint --fix --max-warnings=0 src/routes/users.js
@@ -318,8 +285,8 @@ export default {
   // Array form: filenames are appended automatically — what you want for linters.
   "*.{js,ts}": ["eslint --fix --max-warnings=0", "prettier --write"],
 
-  // Function form: YOU build the command, so YOU decide what gets appended.
-  // Here: run only the tests that actually touch the staged files.
+  // Function form: you build the command, so you decide what gets appended —
+  // here, only the tests that actually touch the staged files.
   "src/**/*.js": (files) =>
     `jest --bail --findRelatedTests --passWithNoTests ${files.join(" ")}`,
 };
@@ -353,10 +320,8 @@ Everyone puts the full test suite in `pre-commit` once. It works for a week; the
 ```sh
 # .husky/pre-commit
 npx lint-staged
-
 # .husky/commit-msg
 npx --no -- commitlint --edit "$1"
-
 # .husky/pre-push
 npm test
 ```
@@ -435,7 +400,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
       - run: npm ci
       - run: npx eslint .            # same rules pre-commit ran, now repo-wide
       - run: npx prettier --check .  # --check, not --write: CI reports, never fixes
@@ -456,8 +420,7 @@ if git diff --cached --name-only | grep -qE '(^|/)\.env(\..+)?$'; then
   exit 1
 fi
 
-# -S is git's pickaxe: it lists files where the number of occurrences of the
-# string changed, which for a staged diff means somebody just added one.
+# -S is git's pickaxe: it lists files where the count of that string changed.
 if git diff --cached -S'AKIA' --name-only | grep -q .; then
   echo "Blocked: that looks like an AWS access key id."
   exit 1
@@ -500,7 +463,7 @@ const config: UserConfig = {
   rules: {
     // [level, applicable, value] — level 2 = error, 1 = warning, 0 = off
     "subject-max-length": [2, "always", 100],
-    // Restrict scopes to your actual modules so nobody invents new ones.
+    // Restrict scopes to your real modules so nobody invents new ones.
     "scope-enum": [2, "always", ["auth", "users", "orders", "deps", "ci"]],
   },
 };
@@ -508,16 +471,7 @@ const config: UserConfig = {
 export default config;
 ```
 
-Because type-checking a large project is slow, many teams move it out of `pre-commit` entirely:
-
-```sh
-# .husky/pre-commit
-npx lint-staged        # fast: eslint + prettier, staged files only
-
-# .husky/pre-push
-npx tsc --noEmit       # slower: whole-project type check
-npm test
-```
+Because type-checking a large project is slow, many teams move it out of `pre-commit` entirely: `npx lint-staged` (fast, staged files only) stays in `pre-commit`, while the slower whole-project `npx tsc --noEmit` moves to `pre-push` alongside `npm test`.
 
 ---
 
@@ -527,7 +481,6 @@ A real repo's complete configuration, plus the escape hatches for the environmen
 
 ```json
 {
-  "name": "my-api",
   "type": "module",
   "scripts": {
     "lint": "eslint .",
@@ -558,7 +511,7 @@ HUSKY=0 npm ci        # dependencies installed, hooks never wired up
 HUSKY=2 git commit    # the opposite: debug mode, traces every line of the hook
 ```
 
-Production images are a different problem. With `--omit=dev` the `husky` binary is never installed, yet npm still runs `prepare` — so the build fails with `husky: not found` and `HUSKY=0` cannot save you, because the script itself is missing. Delete the script instead:
+Production images are a different problem. With `--omit=dev` the `husky` binary is never installed, yet npm still runs `prepare` — so the build fails with `husky: not found` and `HUSKY=0` cannot save you, because the binary that script calls was never installed. Delete the script instead:
 
 ```dockerfile
 # Dockerfile — remove the prepare script before installing production deps
@@ -568,15 +521,7 @@ RUN npm pkg delete scripts.prepare \
 
 ### When package.json is not at the git root
 
-`core.hooksPath` is a per-repository setting, so husky must be installed from the repository root. In a monorepo where the Node app lives in a subfolder, point husky back at the root and tell it where your hooks directory is:
-
-```json
-{
-  "scripts": {
-    "prepare": "cd .. && husky backend/.husky"
-  }
-}
-```
+`core.hooksPath` is a per-repository setting, so husky must be installed from the repository root. In a monorepo where the Node app lives in a subfolder, run husky from the root and tell it where the hooks directory is — `"prepare": "cd .. && husky backend/.husky"`.
 
 The payoff is that onboarding is `git clone && npm install`, with zero documentation, and the new developer physically cannot commit an unformatted file.
 
@@ -670,10 +615,8 @@ npm install --save-dev @commitlint/cli @commitlint/config-conventional
 ```sh
 # .husky/pre-commit
 npx lint-staged
-
 # .husky/commit-msg   ($1 = path to the message file git passes in)
 npx --no -- commitlint --edit "$1"
-
 # .husky/pre-push
 npm test
 ```
@@ -689,14 +632,11 @@ npm test
 ```
 
 ```bash
-# Escape hatches
 git commit --no-verify -m "wip"   # skip pre-commit + commit-msg
 git push --no-verify              # skip pre-push
 HUSKY=0 npm ci                    # install deps without wiring up hooks
-
-# Troubleshooting
+HUSKY=2 git commit                # trace every line of the hook, for debugging
 git config core.hooksPath         # should print .husky/_
-HUSKY=2 git commit                # trace every line of the hook
 chmod +x .husky/pre-commit        # if a hook silently never runs
 npx lint-staged --verbose         # see task output even when it passes
 ```
